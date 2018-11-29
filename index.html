@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style> /* set the CSS */
+
+.line {
+  fill: none;
+  stroke: steelblue;
+  stroke-width: 2px;
+}
+
+.ppline {
+  fill: none;
+  stroke: Khaki;
+  stroke-width: 1px;
+}
+
+.r1line {
+  fill: none;
+  stroke: Orange;
+  stroke-width: 1px;
+}
+
+.r2line {
+  fill: none;
+  stroke: Coral;
+  stroke-width: 1px;
+}
+
+.r3line {
+  fill: none;
+  stroke: DarkRed;
+  stroke-width: 1px;
+}
+
+.s1line {
+  fill: none;
+  stroke: YellowGreen;
+  stroke-width: 1px;
+}
+
+.s2line {
+  fill: none;
+  stroke: Chartreuse;
+  stroke-width: 1px;
+}
+
+.s3line {
+  fill: none;
+  stroke: DarkSeaGreen;
+  stroke-width: 1px;
+}
+
+.atrline {
+  fill: none;
+  stroke: steelblue;
+  stroke-width: 1px;
+}
+
+.stoplossline {
+  fill: none;
+  stroke: #89868E;
+  stroke-width: 1px;
+}
+
+.zoom {
+  cursor: move;
+  fill: none;
+  pointer-events: all;
+}
+</style>
+<body>
+
+<!-- load the d3.js library -->    	
+<script src="https://d3js.org/d3.v4.min.js"></script>
+<script>
+
+// set the dimensions and margins of the graph
+var margin = {top: 20, right: 20, bottom: 30, left: 50},
+    width = 960 - margin.left - margin.right,
+    height = 500 - margin.top - margin.bottom;
+
+// parse the date / time
+var parseTime = d3.timeParse("%Y-%m-%d %H:%M:%S");
+
+// set the ranges
+var x = d3.scaleTime().range([0, width]);
+var x2 = d3.scaleTime().range([0, width]);
+var y = d3.scaleLinear().range([height, 0]);
+var y2 = d3.scaleLinear().range([height, 0]);
+
+var zoom = d3.zoom()
+    .scaleExtent([1, Infinity])
+    .translateExtent([[0, 0], [width, height]])
+    .extent([[0, 0], [width, height]])
+    .on("zoom", zoomed);
+
+// define the line
+var valueline = d3.line()
+    .x(function(d) { return x(d.date); })
+    .y(function(d) { return y(d.price); });
+// define the line
+var ppline = d3.line()
+    .defined(function(d) { return d.ppValue > 0.0; })
+    .x(function(d) { return x(d.date); })
+    .y(function(d) { return y(d.ppValue); });
+// define the line
+var r1line = d3.line()
+    .defined(function(d) { return d.resistance1 > 0.0 })
+    .x(function(d) { return x(d.date); })
+    .y(function(d) { return y(d.resistance1); });
+// define the line
+var r2line = d3.line()
+    .defined(function(d) { return d.resistance2 > 0.0 })
+    .x(function(d) { return x(d.date); })
+    .y(function(d) { return y(d.resistance2); });
+// define the line
+var r3line = d3.line()
+    .defined(function(d) { return d.resistance3 > 0.0 })
+    .x(function(d) { return x(d.date); })
+    .y(function(d) { return y(d.resistance3); });
+// define the line
+var s1line = d3.line()
+    .defined(function(d) { return d.support1 > 0.0 })
+    .x(function(d) { return x(d.date); })
+    .y(function(d) { return y(d.support1); });
+// define the line
+var s2line = d3.line()
+    .defined(function(d) { return d.support2 > 0.0 })
+    .x(function(d) { return x(d.date); })
+    .y(function(d) { return y(d.support2); });
+// define the line
+var s3line = d3.line()
+    .defined(function(d) { return d.support3 > 0.0 })
+    .x(function(d) { return x(d.date); })
+    .y(function(d) { return y(d.support3); });
+// define the line
+var atrline = d3.line()
+    .defined(function(d) { return d.atrValue > 0.0 })
+    .x(function(d) { return x(d.date); })
+    .y(function(d) { return y(d.atrValue); });
+// define the line
+/*var stoplossline = d3.line()
+    .defined(function(d) { return d.stopLossPrice > 0.0 })
+    .x(function(d) { return x(d.date) - 10; })
+    .y(function(d) { return y(d.atrValue); })
+    .x2(function(d) { return x(d.date) + 10; })
+    .y2(function(d) { return y(d.atrValue); });*/
+  
+// append the svg obgect to the body of the page
+// appends a 'group' element to 'svg'
+// moves the 'group' element to the top left margin
+var svg = d3.select("body").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+
+var xAxis = d3.axisBottom(x);
+var yAxis = d3.axisLeft(y);
+    
+var clip = svg.append("defs").append("svg:clipPath")
+    .attr("id", "clip")
+    .append("svg:rect")
+    .attr("width", width)
+    .attr("height", height)
+    .attr("x", 0)
+    .attr("y", 0);
+
+var chart = svg.append("g")
+    .attr("class", "focus")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
+    .attr("clip-path", "url(#clip)");
+
+var focus = svg.append("g")
+    .attr("class", "focus")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+function draw(data, pair) {
+  
+  var data = data[pair];
+  
+  // format the data
+  data.forEach(function(d) {
+      d.date = parseTime(d.date);
+      d.price = +d.price;
+      d.entryPriceLong = +d.entryPriceLong;
+      d.entryPriceShort = +d.entryPriceShort;
+      d.exitPriceLong = +d.exitPriceLong;
+      d.exitPriceShort = +d.exitPriceShort;
+      d.ppValue = +d.ppValue;
+      d.resistance1 = +d.resistance1;
+      d.resistance2 = +d.resistance2;
+      d.resistance3 = +d.resistance3;
+      d.support1 = +d.support1;
+      d.support2 = +d.support2;
+      d.support3 = +d.support3;
+      d.atrValue = +d.atrValue;
+  });
+  
+    // sort years ascending
+    data.sort(function(a, b){
+        return a["date"]-b["date"];
+    })
+ 
+    // Scale the range of the data
+    x.domain(d3.extent(data, function(d) { return d.date; }));
+    x2.domain(x.domain());
+    y.domain([0, d3.max(data, function(d) { return d.price })]);
+    y2.domain(y.domain());
+  
+    // Add the valueline path.
+    chart.append("path")
+        .data([data])
+        .attr("class", "line")
+        .attr("d", valueline);
+
+    // Add the valueline path.
+    chart.append("path")
+        .data([data])
+        .attr("class", "ppline")
+        .attr("d", ppline);
+
+    // Add the resistance 1 line path.
+    chart.append("path")
+        .data([data])
+        .attr("class", "r1line")
+        .attr("d", r1line);
+
+    // Add the resistance 2 line path.
+    chart.append("path")
+        .data([data])
+        .attr("class", "r2line")
+        .attr("d", r2line);
+
+    // Add the resistance 3 line path.
+    chart.append("path")
+        .data([data])
+        .attr("class", "r3line")
+        .attr("d", r3line);
+
+    // Add the support 1 line path.
+    chart.append("path")
+        .data([data])
+        .attr("class", "s1line")
+        .attr("d", s1line);
+
+    // Add the support 2 line path.
+    chart.append("path")
+        .data([data])
+        .attr("class", "s2line")
+        .attr("d", s2line);
+
+    // Add the support 3 line path.
+    chart.append("path")
+        .data([data])
+        .attr("class", "s3line")
+        .attr("d", s3line);
+
+    // Add the atr line path.
+    chart.append("path")
+        .data([data])
+        .attr("class", "atrline")
+        .attr("d", atrline);
+
+    // Add the stoploss line path.
+    chart.selectAll("stoplossline")
+        .data(data)
+        .enter()
+        .append("line")
+        .filter(function(d) { return d.stopLossPrice > 0.0 })
+        .attr("class", "stoplossline")
+        .attr("x1", function(d) { return x(d.date) - 5; })
+        .attr("y1", function(d) { return y(d.stopLossPrice); })
+        .attr("x2", function(d) { return x(d.date) + 5; })
+        .attr("y2", function(d) { return y(d.stopLossPrice); });
+
+    chart.selectAll('circle .entryPriceLong')
+        .data(data)
+        .enter()
+        .append('circle')
+        .filter(function(d) { return d.entryPriceLong > 0.0 })
+        .attr("class", "entryPriceLong")
+        .attr('r', 3.0)
+        .attr('cx', function(d) { return x(d.date);  })
+        .attr('cy', function(d) { return y(d.entryPriceLong); })
+        .style('cursor', 'pointer')
+        .style('fill', 'Yellow');
+
+    chart.selectAll('circle .entryPriceShort')
+        .data(data)
+        .enter()
+        .append('circle')
+        .filter(function(d) { return d.entryPriceShort > 0.0 })
+        .attr("class", "entryPriceShort")
+        .attr('r', 3.0)
+        .attr('cx', function(d) { return x(d.date);  })
+        .attr('cy', function(d) { return y(d.entryPriceShort); })
+        .style('cursor', 'pointer')
+        .style('fill', 'Crimson');
+
+    chart.selectAll('circle .exitPriceShort')
+        .data(data)
+        .enter()
+        .append('circle')
+        .filter(function(d) { return d.exitPriceShort > 0.0 })
+        .attr("class", "exitPriceShort")
+        .attr('r', 3.0)
+        .attr('cx', function(d) { return x(d.date);  })
+        .attr('cy', function(d) { return y(d.exitPriceShort); })
+        .style('cursor', 'pointer')
+        .style('fill', 'Green');
+
+    chart.selectAll('circle .exitPriceLong')
+        .data(data)
+        .enter()
+        .append('circle')
+        .filter(function(d) { return d.exitPriceLong > 0.0 })
+        .attr("class", "exitPriceLong")
+        .attr('r', 3.0)
+        .attr('cx', function(d) { return x(d.date);  })
+        .attr('cy', function(d) { return y(d.exitPriceLong); })
+        .style('cursor', 'pointer')
+        .style('fill', 'Green');
+
+    // Add the X Axis
+    focus.append("g")
+        .attr("class", "axis axis--x")
+        .attr("transform", "translate(0," + height + ")")
+        .call(xAxis);
+
+    // Add the Y Axis
+    focus.append("g")
+        .attr("class", "axis axis--y")
+        .call(yAxis);
+
+    svg.append("rect")
+        .attr("class", "zoom")
+        .attr("width", width)
+        .attr("height", height)
+        .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
+        .call(zoom);
+    }
+        
+
+function zoomed() {
+    if (d3.event.sourceEvent && d3.event.sourceEvent.type === "brush") return; // ignore zoom-by-brush
+    var t = d3.event.transform;
+    var xt = t.rescaleX(x2);
+    var yt = t.rescaleY(y2);
+    chart.select(".line").attr("d", valueline.x(function(d) { return xt(d.date)}).y(function(d) { return yt(d.price)}));
+    chart.select(".ppline").attr("d", ppline.x(function(d) { return xt(d.date)}).y(function(d) { return yt(d.ppValue)}));
+    chart.select(".r1line").attr("d", r1line.x(function(d) { return xt(d.date)}).y(function(d) { return yt(d.resistance1)}));
+    chart.select(".r2line").attr("d", r2line.x(function(d) { return xt(d.date)}).y(function(d) { return yt(d.resistance2)}));
+    chart.select(".r3line").attr("d", r3line.x(function(d) { return xt(d.date)}).y(function(d) { return yt(d.resistance3)}));
+    chart.select(".s1line").attr("d", s1line.x(function(d) { return xt(d.date)}).y(function(d) { return yt(d.support1)}));
+    chart.select(".s2line").attr("d", s2line.x(function(d) { return xt(d.date)}).y(function(d) { return yt(d.support2)}));
+    chart.select(".s3line").attr("d", s3line.x(function(d) { return xt(d.date)}).y(function(d) { return yt(d.support3)}));
+    chart.select(".atrline").attr("d", atrline.x(function(d) { return xt(d.date)}).y(function(d) { return yt(d.atrValue)}));
+    chart.selectAll(".stoplossline")
+        .attr("x1", function(d) { return xt(d.date) - 5; })
+        .attr("y1", function(d) { return yt(d.stopLossPrice); })
+        .attr("x2", function(d) { return xt(d.date) + 5; })
+        .attr("y2", function(d) { return yt(d.stopLossPrice); });
+    chart.selectAll(".entryPriceLong")
+    .attr('cx', function(d) { return xt(d.date);  })
+    .attr('cy', function(d) { return yt(d.entryPriceLong); })
+    chart.selectAll(".entryPriceShort")
+        .attr('cx', function(d) { return xt(d.date);  })
+        .attr('cy', function(d) { return yt(d.entryPriceShort); })
+    chart.selectAll(".exitPriceShort")
+        .attr('cx', function(d) { return xt(d.date);  })
+        .attr('cy', function(d) { return yt(d.exitPriceShort); })
+    chart.selectAll(".exitPriceLong")
+        .attr('cx', function(d) { return xt(d.date);  })
+        .attr('cy', function(d) { return yt(d.exitPriceLong); })
+    focus.select(".axis--x").call(xAxis.scale(d3.event.transform.rescaleX(x)));
+    focus.select(".axis--y").call(yAxis.scale(d3.event.transform.rescaleY(y)));
+}
+
+// Get the data
+d3.json("BFX_Full_chart_data_15m_Output.json", function(error, data) {
+  if (error) throw error;
+  
+  // trigger render
+  for (var key in data) {
+    draw(data, key);
+  }
+});
+
+</script>
+</body>

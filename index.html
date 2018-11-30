@@ -74,25 +74,56 @@
 <script src="https://d3js.org/d3.v4.min.js"></script>
 <script>
 
-// set the dimensions and margins of the graph
-var margin = {top: 20, right: 20, bottom: 30, left: 50},
-    width = 960 - margin.left - margin.right,
-    height = 500 - margin.top - margin.bottom;
+    
+/*var svg = d3.select("svg"),
+    margin = {top: 20, right: 20, bottom: 110, left: 40},
+    margin2 = {top: 430, right: 20, bottom: 30, left: 40},
+    width = +svg.attr("width") - margin.left - margin.right,
+    height = +svg.attr("height") - margin.top - margin.bottom,
+    height2 = +svg.attr("height") - margin2.top - margin2.bottom;*/
 
-// parse the date / time
-var parseTime = d3.timeParse("%Y-%m-%d %H:%M:%S");
+// set the dimensions and margins of the graph
+/*var margin = {top: 20, right: 20, bottom: 30, left: 50},
+    width = 960 - margin.left - margin.right,
+    height = 500 - margin.top - margin.bottom;*/
+
+// append the svg obgect to the body of the page
+// appends a 'group' element to 'svg'
+// moves the 'group' element to the top left margin
+/*var svg = d3.select("body").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)*/
+var svg = d3.select("body").append("svg")
+    .attr("width", 960)
+    .attr("height", 500),
+    margin = {top: 20, right: 20, bottom: 110, left: 80},
+    margin2 = {top: 430, right: 20, bottom: 30, left: 80},
+    width = +svg.attr("width") - margin.left - margin.right,
+    height = +svg.attr("height") - margin.top - margin.bottom,
+    height2 = +svg.attr("height") - margin2.top - margin2.bottom;
 
 // set the ranges
 var x = d3.scaleTime().range([0, width]);
 var x2 = d3.scaleTime().range([0, width]);
 var y = d3.scaleLinear().range([height, 0]);
-var y2 = d3.scaleLinear().range([height, 0]);
+var y2 = d3.scaleLinear().range([height2, 0]);
+
+// parse the date / time
+var parseTime = d3.timeParse("%Y-%m-%d %H:%M:%S");
+
+var xAxis = d3.axisBottom(x),
+    xAxis2 = d3.axisBottom(x2);
+var yAxis = d3.axisLeft(y);
 
 var zoom = d3.zoom()
     .scaleExtent([1, Infinity])
     .translateExtent([[0, 0], [width, height]])
     .extent([[0, 0], [width, height]])
     .on("zoom", zoomed);
+
+var brush = d3.brushX()
+    .extent([[0, 0], [width, height2]])
+    .on("brush end", brushed);
 
 // define the line
 var valueline = d3.line()
@@ -139,22 +170,9 @@ var atrline = d3.line()
     .x(function(d) { return x(d.date); })
     .y(function(d) { return y(d.atrValue); });
 // define the line
-/*var stoplossline = d3.line()
-    .defined(function(d) { return d.stopLossPrice > 0.0 })
-    .x(function(d) { return x(d.date) - 10; })
-    .y(function(d) { return y(d.atrValue); })
-    .x2(function(d) { return x(d.date) + 10; })
-    .y2(function(d) { return y(d.atrValue); });*/
-  
-// append the svg obgect to the body of the page
-// appends a 'group' element to 'svg'
-// moves the 'group' element to the top left margin
-var svg = d3.select("body").append("svg")
-    .attr("width", width + margin.left + margin.right)
-    .attr("height", height + margin.top + margin.bottom)
-
-var xAxis = d3.axisBottom(x);
-var yAxis = d3.axisLeft(y);
+var line2 = d3.line()
+    .x(function (d) { return x2(d.date); })
+    .y(function (d) { return y2(d.price); });
     
 var clip = svg.append("defs").append("svg:clipPath")
     .attr("id", "clip")
@@ -172,6 +190,10 @@ var chart = svg.append("g")
 var focus = svg.append("g")
     .attr("class", "focus")
     .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+var context = svg.append("g")
+    .attr("class", "context")
+    .attr("transform", "translate(" + margin2.left + "," + margin2.top + ")");
 
 function draw(data, pair) {
   
@@ -330,6 +352,21 @@ function draw(data, pair) {
     focus.append("g")
         .attr("class", "axis axis--y")
         .call(yAxis);
+        
+    context.append("path")
+        .datum(data)
+        .attr("class", "line")
+        .attr("d", line2);
+
+    context.append("g")
+        .attr("class", "axis axis--x")
+        .attr("transform", "translate(0," + height2 + ")")
+        .call(xAxis2);
+
+    context.append("g")
+      .attr("class", "brush")
+      .call(brush)
+      .call(brush.move, x.range());
 
     svg.append("rect")
         .attr("class", "zoom")
@@ -344,7 +381,7 @@ function zoomed() {
     if (d3.event.sourceEvent && d3.event.sourceEvent.type === "brush") return; // ignore zoom-by-brush
     var t = d3.event.transform;
     var xt = t.rescaleX(x2);
-    var yt = t.rescaleY(y2);
+    var yt = t.rescaleY(y);
     chart.select(".line").attr("d", valueline.x(function(d) { return xt(d.date)}).y(function(d) { return yt(d.price)}));
     chart.select(".ppline").attr("d", ppline.x(function(d) { return xt(d.date)}).y(function(d) { return yt(d.ppValue)}));
     chart.select(".r1line").attr("d", r1line.x(function(d) { return xt(d.date)}).y(function(d) { return yt(d.resistance1)}));
@@ -373,6 +410,75 @@ function zoomed() {
         .attr('cy', function(d) { return yt(d.exitPriceLong); })
     focus.select(".axis--x").call(xAxis.scale(d3.event.transform.rescaleX(x)));
     focus.select(".axis--y").call(yAxis.scale(d3.event.transform.rescaleY(y)));
+    context.select(".brush").call(brush.move, x.range().map(t.invertX, t));
+
+    /*if (d3.event.sourceEvent && d3.event.sourceEvent.type === "brush") return; // ignore zoom-by-brush
+    var t = d3.event.transform;
+    x.domain(t.rescaleX(x2).domain());
+    chart.select(".line").attr("d", valueline);
+    chart.select(".ppline").attr("d", ppline);
+    chart.select(".r1line").attr("d", r1line);
+    chart.select(".r2line").attr("d", r2line);
+    chart.select(".r3line").attr("d", r3line);
+    chart.select(".s1line").attr("d", s1line);
+    chart.select(".s2line").attr("d", s2line);
+    chart.select(".s3line").attr("d", s3line);
+    chart.select(".atrline").attr("d", atrline);
+    chart.selectAll(".stoplossline")
+        .attr("x1", function(d) { return x(d.date) - 5; })
+        .attr("y1", function(d) { return y(d.stopLossPrice); })
+        .attr("x2", function(d) { return x(d.date) + 5; })
+        .attr("y2", function(d) { return y(d.stopLossPrice); });
+    chart.selectAll(".entryPriceLong")
+    .attr('cx', function(d) { return x(d.date);  })
+    .attr('cy', function(d) { return y(d.entryPriceLong); })
+    chart.selectAll(".entryPriceShort")
+        .attr('cx', function(d) { return x(d.date);  })
+        .attr('cy', function(d) { return y(d.entryPriceShort); })
+    chart.selectAll(".exitPriceShort")
+        .attr('cx', function(d) { return x(d.date);  })
+        .attr('cy', function(d) { return y(d.exitPriceShort); })
+    chart.selectAll(".exitPriceLong")
+        .attr('cx', function(d) { return x(d.date);  })
+        .attr('cy', function(d) { return y(d.exitPriceLong); })
+    focus.select(".axis--x").call(xAxis);
+    context.select(".brush").call(brush.move, x.range().map(t.invertX, t));*/
+}
+
+function brushed() {
+  if (d3.event.sourceEvent && d3.event.sourceEvent.type === "zoom") return; // ignore brush-by-zoom
+  var s = d3.event.selection || x2.range();
+  x.domain(s.map(x2.invert, x2));
+    chart.select(".line").attr("d", valueline.x(function(d) { return x(d.date)}).y(function(d) { return y(d.price)}));
+    chart.select(".ppline").attr("d", ppline.x(function(d) { return x(d.date)}).y(function(d) { return y(d.ppValue)}));
+    chart.select(".r1line").attr("d", r1line.x(function(d) { return x(d.date)}).y(function(d) { return y(d.resistance1)}));
+    chart.select(".r2line").attr("d", r2line.x(function(d) { return x(d.date)}).y(function(d) { return y(d.resistance2)}));
+    chart.select(".r3line").attr("d", r3line.x(function(d) { return x(d.date)}).y(function(d) { return y(d.resistance3)}));
+    chart.select(".s1line").attr("d", s1line.x(function(d) { return x(d.date)}).y(function(d) { return y(d.support1)}));
+    chart.select(".s2line").attr("d", s2line.x(function(d) { return x(d.date)}).y(function(d) { return y(d.support2)}));
+    chart.select(".s3line").attr("d", s3line.x(function(d) { return x(d.date)}).y(function(d) { return y(d.support3)}));
+    chart.select(".atrline").attr("d", atrline.x(function(d) { return x(d.date)}).y(function(d) { return y(d.atrValue)}));
+    chart.selectAll(".stoplossline")
+        .attr("x1", function(d) { return x(d.date) - 5; })
+        .attr("y1", function(d) { return y(d.stopLossPrice); })
+        .attr("x2", function(d) { return x(d.date) + 5; })
+        .attr("y2", function(d) { return y(d.stopLossPrice); });
+    chart.selectAll(".entryPriceLong")
+    .attr('cx', function(d) { return x(d.date);  })
+    .attr('cy', function(d) { return y(d.entryPriceLong); })
+    chart.selectAll(".entryPriceShort")
+        .attr('cx', function(d) { return x(d.date);  })
+        .attr('cy', function(d) { return y(d.entryPriceShort); })
+    chart.selectAll(".exitPriceShort")
+        .attr('cx', function(d) { return x(d.date);  })
+        .attr('cy', function(d) { return y(d.exitPriceShort); })
+    chart.selectAll(".exitPriceLong")
+        .attr('cx', function(d) { return x(d.date);  })
+        .attr('cy', function(d) { return y(d.exitPriceLong); })
+  focus.select(".axis--x").call(xAxis);
+  /*svg.select(".zoom").call(zoom.transform, d3.zoomIdentity
+      .scale(width / (s[1] - s[0]))
+      .translate(-s[0], 0));*/
 }
 
 // Get the data
